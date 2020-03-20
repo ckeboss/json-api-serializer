@@ -1543,6 +1543,174 @@ describe('JSONAPISerializer', function() {
       done();
     });
 
+    it('should deserialize data with circular included', function(done) {
+      const Serializer = new JSONAPISerializer();
+
+      Serializer.register('article', {
+        relationships: {
+          'comment': {
+            type: 'comment'
+          }
+        }
+      })
+      
+      Serializer.register('comment', {
+        relationships: {
+          'author': {
+            type: 'author',
+          }
+        }
+      })
+
+      Serializer.register('author', {
+        relationships: {
+          'comment': {
+            type: 'comment',
+          }
+        }
+      })
+
+      const data = 
+        {
+          data: {
+            type: 'article',
+            id: '1',
+            attributes: {
+              title: 'Quantitative Easing'
+            },
+            relationships: {
+              comment: {
+                data: {
+                type: 'comment',
+                id: '3'
+                }
+              }
+            }
+          },
+          included: [
+            {
+              type: 'comment',
+              id: '3',
+              attributes: {
+                content: 'Good Luck'
+              },
+              relationships: {
+                'author': {
+                  'data': {
+                    'type': 'author',
+                    'id': '1'
+                  }
+                }
+              }
+            },
+            {
+              type: 'author',
+              id: '1',
+              attributes: {
+                name: 'Sally'
+              },
+              relationships:{
+                comment:{
+                  data:{
+                    type: 'comment',
+                    id: '3'
+                  }
+                }
+              }
+            }
+          ]
+        }
+
+      const deserializedData = Serializer.deserialize('article', data);
+      expect(deserializedData).to.have.property('id');
+      expect(deserializedData.comment).to.have.property('id');
+      expect(deserializedData.comment.author).to.have.property('id');
+      expect(deserializedData.comment.author).to.have.property('comment').to.equal('3');
+      done();
+    });
+
+    it('should deserialize data with circular included array', function(done) {
+      const Serializer = new JSONAPISerializer();
+
+      Serializer.register('article', {
+        relationships: {
+          'comments': {
+            type: 'comment'
+          }
+        }
+      })
+
+      Serializer.register('comment', {
+        relationships: {
+          'tags': {
+            type: 'tag',
+          }
+        }
+      })
+
+      Serializer.register('tag', {
+        relationships: {
+          'comment': {
+            type: 'comment',
+          }
+        }
+      })
+
+      const data = 
+        {
+          "data":{
+            "type":"article",
+            "id":"1",
+            "relationships":{
+              "comments":{
+                "data":[
+                  {
+                    "type":"comment",
+                    "id":"3"
+                  }
+                ]
+              }
+            }
+          },
+          "included":[
+            {
+              "type":"comment",
+              "id":"3",
+              "relationships":{
+                "tags":{
+                  "data":[
+                    {
+                      "type":"tag",
+                      "id":"1"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "type":"tag",
+              "id":"1",
+              "relationships":{
+                "comment":{
+                  "data": {
+                    "type":"comment",
+                    "id":"3"
+                  }
+                }
+              }
+            }
+          ]
+        }
+
+      const deserializedData = Serializer.deserialize('article', data);
+      console.log(JSON.stringify(deserializedData, null, 2))
+      expect(deserializedData).to.have.property('id');
+      expect(deserializedData).to.have.property('comments').to.be.instanceof(Array).to.have.length(1);
+      expect(deserializedData['comments'][0]).to.have.property('tags').to.be.instanceof(Array).to.have.length(1);
+      expect(deserializedData['comments'][0].tags[0]).to.have.property('comment').to.equal('3')
+      done();
+    });
+
     it('should deserialize with missing included relationship', function(done) {
       const Serializer = new JSONAPISerializer();
       Serializer.register('articles', {
